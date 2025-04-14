@@ -2,29 +2,50 @@ import Dockerode, { Container, ContainerCreateOptions } from 'dockerode'
 import { Logging } from '../command/root-command/logging'
 import { ContainerImageConflictError } from './error'
 
-export const DEFAULT_ENV_PREFIX = 'bee-factory'
-export const DEFAULT_IMAGE_PREFIX = 'bee-factory'
+export const DEFAULT_ENV_PREFIX = 'codex-factory'
+export const DEFAULT_IMAGE_PREFIX = 'nim-codex'
+export const HOST_COUNT = 4
 
 const BLOCKCHAIN_IMAGE_NAME_SUFFIX = '-blockchain'
-const QUEEN_IMAGE_NAME_SUFFIX = '-queen'
-const WORKER_IMAGE_NAME_SUFFIX = '-worker'
+const CLIENT_IMAGE_NAME_SUFFIX = '-client'
+const HOST_IMAGE_NAME_SUFFIX = '-host'
 const NETWORK_NAME_SUFFIX = '-network'
+const HARDHAT_ACCOUNTS = [
+  '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', // Deployer account
+  '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // Client account
+  '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Host 1 account
+  '0x90F79bf6EB2c4f870365E785982E1f101E93b906', // Host 2 account
+  '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', // .
+  '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', // .
+  '0x976EA74026E726554dB657fA54763abd0C3a0aa9', // .
+  '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',
+  '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',
+  '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720',
+  '0xBcd4042DE499D14e55001CcbB24a551F3b954096',
+  '0x71bE63f3384f5fb98995898A86B02Fb2426c5788',
+  '0xFABB0ac9d68B0B445fB7357272Ff202C5651694a',
+  '0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec',
+  '0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097',
+  '0xcd3B766CCDd6AE721141F452C550Ca635964ce71',
+  '0x2546BcD3c84621e976D8185a91A922aE77ECEc30',
+  '0xbDA5747bFD65F08deb54cb465eB87D40e51B197E',
+  '0xdD2FD4581271e230360230F9337D5c0430Bf44C0',
+  '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+]
 
-export const WORKER_COUNT = 4
-export const BLOCKCHAIN_VERSION_LABEL_KEY = 'org.ethswarm.beefactory.blockchain-version'
-export const CONTRACT_LABEL_KEY_PREFIX = 'org.ethswarm.beefactory.contracts.'
+export const BLOCKCHAIN_IMAGE_LABEL_KEY = 'storage.codex.nim-codex.blockchain-image'
 
 export interface RunOptions {
   fresh: boolean
 }
 
 export enum ContainerType {
-  QUEEN = 'queen',
+  CLIENT = 'client',
   BLOCKCHAIN = 'blockchain',
-  WORKER_1 = 'worker1',
-  WORKER_2 = 'worker2',
-  WORKER_3 = 'worker3',
-  WORKER_4 = 'worker4',
+  HOST = 'host',
+  HOST_2 = 'host2',
+  HOST_3 = 'host3',
+  HOST_4 = 'host4',
 }
 
 export type Status = 'running' | 'exists' | 'not-found'
@@ -32,11 +53,11 @@ type FindResult = { container?: Container; image?: string }
 
 export interface AllStatus {
   blockchain: Status
-  queen: Status
-  worker1: Status
-  worker2: Status
-  worker3: Status
-  worker4: Status
+  client: Status
+  host: Status
+  host_2: Status
+  host_3: Status
+  host_4: Status
 }
 
 export interface DockerError extends Error {
@@ -59,30 +80,19 @@ export class Docker {
   private get blockchainName() {
     return `${this.envPrefix}${BLOCKCHAIN_IMAGE_NAME_SUFFIX}`
   }
-  private blockchainImage(blockchainVersion: string) {
+
+  private hostName(index: number) {
+    return `${this.envPrefix}${HOST_IMAGE_NAME_SUFFIX}-${index}`
+  }
+
+  private get clientName() {
+    return `${this.envPrefix}${CLIENT_IMAGE_NAME_SUFFIX}`
+  }
+
+  private codexImage(codexVersion: string) {
     if (!this.repo) throw new TypeError('Repo has to be defined!')
 
-    return `${this.repo}/${this.imagePrefix}${BLOCKCHAIN_IMAGE_NAME_SUFFIX}:${blockchainVersion}`
-  }
-
-  private get queenName() {
-    return `${this.envPrefix}${QUEEN_IMAGE_NAME_SUFFIX}`
-  }
-
-  private queenImage(beeVersion: string) {
-    if (!this.repo) throw new TypeError('Repo has to be defined!')
-
-    return `${this.repo}/${this.imagePrefix}${QUEEN_IMAGE_NAME_SUFFIX}:${beeVersion}`
-  }
-
-  private workerName(index: number) {
-    return `${this.envPrefix}${WORKER_IMAGE_NAME_SUFFIX}-${index}`
-  }
-
-  private workerImage(beeVersion: string, workerNumber: number) {
-    if (!this.repo) throw new TypeError('Repo has to be defined!')
-
-    return `${this.repo}/${this.imagePrefix}${WORKER_IMAGE_NAME_SUFFIX}-${workerNumber}:${beeVersion}`
+    return `${this.repo}/${this.imagePrefix}:${codexVersion}`
   }
 
   constructor(console: Logging, envPrefix: string, imagePrefix: string, repo?: string) {
@@ -102,20 +112,20 @@ export class Docker {
     }
   }
 
-  public async startBlockchainNode(blockchainVersion: string, options: RunOptions): Promise<void> {
+  public async startBlockchainNode(blockchainImage: string, options: RunOptions): Promise<void> {
     if (options.fresh) await this.removeContainer(this.blockchainName)
-    await this.pullImageIfNotFound(this.blockchainImage(blockchainVersion))
+    await this.pullImageIfNotFound(blockchainImage)
 
     const container = await this.findOrCreateContainer(this.blockchainName, {
-      Image: this.blockchainImage(blockchainVersion),
+      Image: blockchainImage,
       name: this.blockchainName,
       ExposedPorts: {
-        '9545/tcp': {},
+        '8545/tcp': {},
       },
       AttachStderr: false,
       AttachStdout: false,
       HostConfig: {
-        PortBindings: { '9545/tcp': [{ HostPort: '9545' }] },
+        PortBindings: { '8545/tcp': [{ HostPort: '8545' }] },
         NetworkMode: this.networkName,
       },
     })
@@ -131,30 +141,29 @@ export class Docker {
     }
   }
 
-  public async startQueenNode(beeVersion: string, options: RunOptions): Promise<void> {
-    if (options.fresh) await this.removeContainer(this.queenName)
-    await this.pullImageIfNotFound(this.queenImage(beeVersion))
+  public async startClientNode(codexVersion: string, options: RunOptions): Promise<void> {
+    if (options.fresh) await this.removeContainer(this.clientName)
+    await this.pullImageIfNotFound(this.codexImage(codexVersion))
 
-    const contractAddresses = await this.getContractAddresses(this.queenImage(beeVersion))
-    const container = await this.findOrCreateContainer(this.queenName, {
-      Image: this.queenImage(beeVersion),
-      name: this.queenName,
+    const container = await this.findOrCreateContainer(this.clientName, {
+      Image: this.codexImage(codexVersion),
+      name: this.clientName,
       ExposedPorts: {
-        '1633/tcp': {},
-        '1634/tcp': {},
-        '1635/tcp': {},
+        '8070/tcp': {},
+        '8080/tcp': {},
+        '8090/udp': {},
       },
       Tty: true,
-      Cmd: ['start'],
-      Env: this.createBeeEnvParameters(contractAddresses),
+      Cmd: ['codex', 'persistence'],
+      Env: this.createCodexEnvParameters(HARDHAT_ACCOUNTS[1], 0),
       AttachStderr: false,
       AttachStdout: false,
       HostConfig: {
         NetworkMode: this.networkName,
         PortBindings: {
-          '1633/tcp': [{ HostPort: '1633' }],
-          '1634/tcp': [{ HostPort: '1634' }],
-          '1635/tcp': [{ HostPort: '1635' }],
+          '8070/tcp': [{ HostPort: '8070' }],
+          '8080/tcp': [{ HostPort: '8080' }],
+          '8090/udp': [{ HostPort: '8090' }],
         },
       },
     })
@@ -167,38 +176,37 @@ export class Docker {
     if (!state.State.Running) {
       await container.start()
     } else {
-      this.console.info('The Queen node container was already running, so not starting it again.')
+      this.console.info('The Client node container was already running, so not starting it again.')
     }
   }
 
-  public async startWorkerNode(
-    beeVersion: string,
-    workerNumber: number,
-    queenAddress: string,
+  public async startHostNode(
+    codexVersion: string,
+    hostNumber: number,
+    bootstrapAddress: string,
     options: RunOptions,
   ): Promise<void> {
-    if (options.fresh) await this.removeContainer(this.workerName(workerNumber))
-    await this.pullImageIfNotFound(this.workerImage(beeVersion, workerNumber))
+    if (options.fresh) await this.removeContainer(this.hostName(hostNumber))
+    await this.pullImageIfNotFound(this.codexImage(codexVersion))
 
-    const contractAddresses = await this.getContractAddresses(this.workerImage(beeVersion, workerNumber))
-    const container = await this.findOrCreateContainer(this.workerName(workerNumber), {
-      Image: this.workerImage(beeVersion, workerNumber),
-      name: this.workerName(workerNumber),
+    const container = await this.findOrCreateContainer(this.hostName(hostNumber), {
+      Image: this.codexImage(codexVersion),
+      name: this.hostName(hostNumber),
       ExposedPorts: {
-        '1633/tcp': {},
-        '1634/tcp': {},
-        '1635/tcp': {},
+        [`${8070 + hostNumber}/tcp`]: {},
+        [`${8080 + hostNumber}/tcp`]: {},
+        [`${8090 + hostNumber}/udp`]: {},
       },
-      Cmd: ['start'],
-      Env: this.createBeeEnvParameters(contractAddresses, queenAddress),
+      Env: this.createCodexEnvParameters(HARDHAT_ACCOUNTS[hostNumber + 1], hostNumber, bootstrapAddress),
+      Cmd: ['codex', 'persistence', 'prover'],
       AttachStderr: false,
       AttachStdout: false,
       HostConfig: {
         NetworkMode: this.networkName,
         PortBindings: {
-          '1633/tcp': [{ HostPort: (1633 + workerNumber * 10000).toString() }],
-          '1634/tcp': [{ HostPort: (1634 + workerNumber * 10000).toString() }],
-          '1635/tcp': [{ HostPort: (1635 + workerNumber * 10000).toString() }],
+          [`${8070 + hostNumber}/tcp`]: [{ HostPort: (8070 + hostNumber).toString() }],
+          [`${8080 + hostNumber}/tcp`]: [{ HostPort: (8080 + hostNumber).toString() }],
+          [`${8090 + hostNumber}/udp`]: [{ HostPort: (8090 + hostNumber).toString() }],
         },
       },
     })
@@ -210,7 +218,7 @@ export class Docker {
     if (!state.State.Running) {
       await container.start()
     } else {
-      this.console.info('The Queen node container was already running, so not starting it again.')
+      this.console.info('The client node container was already running, so not starting it again.')
     }
   }
 
@@ -223,7 +231,7 @@ export class Docker {
     const { container } = await this.findContainer(this.getContainerName(target))
 
     if (!container) {
-      throw new Error('Queen container does not exists, even though it should have had!')
+      throw new Error('Client container does not exists, even though it should have had!')
     }
 
     const logs = await container.logs({ stdout: true, stderr: true, follow, tail })
@@ -265,29 +273,28 @@ export class Docker {
     }
   }
 
-  public async getBlockchainVersionFromQueenMetadata(beeVersion: string): Promise<string> {
-    // Lets pull the Queen's image if it is not present
-    await this.pullImageIfNotFound(this.queenImage(beeVersion))
+  public async getBlockchainImage(codexVersion: string): Promise<string> {
+    // Lets pull the Codex's image if it is not present
+    await this.pullImageIfNotFound(this.codexImage(codexVersion))
 
-    const queenMetadata = await this.docker.getImage(this.queenImage(beeVersion)).inspect()
+    const codexImageMeta = await this.docker.getImage(this.codexImage(codexVersion)).inspect()
+    const blockchainImage = codexImageMeta.Config.Labels[BLOCKCHAIN_IMAGE_LABEL_KEY]
 
-    const version = queenMetadata.Config.Labels[BLOCKCHAIN_VERSION_LABEL_KEY]
-
-    if (!version) {
-      throw new Error('Blockchain image version was not found in Queen image labels!')
+    if (!blockchainImage) {
+      throw new Error('Blockchain image version was not found in given Codex image labels!')
     }
 
-    return version
+    return blockchainImage
   }
 
   public async getAllStatus(): Promise<AllStatus> {
     return {
-      queen: await this.getStatusForContainer(ContainerType.QUEEN),
+      client: await this.getStatusForContainer(ContainerType.CLIENT),
       blockchain: await this.getStatusForContainer(ContainerType.BLOCKCHAIN),
-      worker1: await this.getStatusForContainer(ContainerType.WORKER_1),
-      worker2: await this.getStatusForContainer(ContainerType.WORKER_2),
-      worker3: await this.getStatusForContainer(ContainerType.WORKER_3),
-      worker4: await this.getStatusForContainer(ContainerType.WORKER_4),
+      host: await this.getStatusForContainer(ContainerType.HOST),
+      host_2: await this.getStatusForContainer(ContainerType.HOST_2),
+      host_3: await this.getStatusForContainer(ContainerType.HOST_3),
+      host_4: await this.getStatusForContainer(ContainerType.HOST_4),
     }
   }
 
@@ -371,49 +378,51 @@ export class Docker {
     switch (name) {
       case ContainerType.BLOCKCHAIN:
         return this.blockchainName
-      case ContainerType.QUEEN:
-        return this.queenName
-      case ContainerType.WORKER_1:
-        return this.workerName(1)
-      case ContainerType.WORKER_2:
-        return this.workerName(2)
-      case ContainerType.WORKER_3:
-        return this.workerName(3)
-      case ContainerType.WORKER_4:
-        return this.workerName(4)
+      case ContainerType.CLIENT:
+        return this.clientName
+      case ContainerType.HOST:
+        return this.hostName(1)
+      case ContainerType.HOST_2:
+        return this.hostName(2)
+      case ContainerType.HOST_3:
+        return this.hostName(3)
+      case ContainerType.HOST_4:
+        return this.hostName(4)
       default:
         throw new Error('Unknown container!')
     }
   }
 
-  private createBeeEnvParameters(contractAddresses: Record<string, string>, bootnode?: string): string[] {
+  private createCodexEnvParameters(ethAccount: string, portIndex: number, bootnode?: string): string[] {
     const options: Record<string, string> = {
-      'warmup-time': '0',
-      'debug-api-enable': 'true',
-      verbosity: '4',
-      'swap-enable': 'true',
-      mainnet: 'false',
-      'swap-endpoint': `http://${this.blockchainName}:9545`,
-      password: 'password',
-      'network-id': '4020',
-      'full-node': 'true',
-      'welcome-message': 'You have found the queen of the beehive...',
-      'cors-allowed-origins': '*',
-      'postage-stamp-start-block': '1',
-      ...contractAddresses,
+      'eth-provider': `http://${this.blockchainName}:8545`,
+      'eth-account': ethAccount,
+      'disc-port': `${8090 + portIndex}`,
+      'listen-addrs': `/ip4/0.0.0.0/tcp/${8070 + portIndex}`,
+      'api-port': `${8080 + portIndex}`,
+      'api-bindaddr': '0.0.0.0',
+      'api-cors-origin': '*',
+      validator: 'true',
+      'validator-max-slots': '1000',
+      'marketplace-address': '0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44',
+      'log-level': 'NOTICE; TRACE: marketplace,sales,node,restapi',
     }
 
-    if (bootnode) {
-      options.bootnode = bootnode
-    }
-
-    // Env variables for Bee has form of `BEE_WARMUP_TIME`, so we need to transform it.
-    return Object.entries(options).reduce<string[]>((previous, current) => {
-      const keyName = `BEE_${current[0].toUpperCase().replace(/-/g, '_')}`
+    // Env variables for Codex has form of `CODEX_LOG_LEVEL`, so we need to transform it.
+    const envVariables = Object.entries(options).reduce<string[]>((previous, current) => {
+      const keyName = `CODEX_${current[0].toUpperCase().replace(/-/g, '_')}`
       previous.push(`${keyName}=${current[1]}`)
 
       return previous
     }, [])
+
+    if (bootnode) {
+      envVariables.push(`BOOTSTRAP_NODE_URL=${bootnode}:8080`)
+    }
+
+    envVariables.push('NAT_IP_AUTO=true')
+
+    return envVariables
   }
 
   private async pullImageIfNotFound(name: string): Promise<void> {
@@ -425,20 +434,5 @@ export class Docker {
 
       await new Promise(res => this.docker.modem.followProgress(pullStream, res))
     }
-  }
-
-  private async getContractAddresses(imageName: string): Promise<Record<string, string>> {
-    const imageMetadata = await this.docker.getImage(imageName).inspect()
-
-    const contractAddresses: Record<string, string> = {}
-
-    // @ts-ignore: Dockerode typings does not have iterator even though it is a simple object
-    for (const [labelKey, labelValue] of Object.entries(imageMetadata.Config.Labels)) {
-      if (labelKey.startsWith(CONTRACT_LABEL_KEY_PREFIX)) {
-        contractAddresses[labelKey.replace(CONTRACT_LABEL_KEY_PREFIX, '')] = labelValue
-      }
-    }
-
-    return contractAddresses
   }
 }

@@ -1,28 +1,27 @@
 {
-  "name": "@ethersphere/bee-factory",
-  "version": "0.5.2",
-  "description": "Orchestration CLI for spinning up local development Bee cluster with Docker",
+  "name": "@codex-storage/codex-factory",
+  "version": "0.1.0",
+  "description": "Orchestration CLI for spinning up local development Codex cluster with Docker",
   "keywords": [
-    "bee",
-    "swarm",
+    "codex",
+    "codex-storage",
     "decentralised",
     "storage",
-    "ethereum",
     "typescript",
     "p2p",
     "docker"
   ],
-  "homepage": "https://github.com/ethersphere/bee-factory",
+  "homepage": "https://github.com/codex-storage/codex-factory",
   "bugs": {
-    "url": "https://github.com/ethersphere/bee-factory/issues/"
+    "url": "https://github.com/codex-storage/codex-factory/issues/"
   },
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ethersphere/bee-factory.git"
+    "url": "https://github.com/codex-storage/codex-factory.git"
   },
   "bin": {
-    "bee-factory": "./dist/src/index.js"
+    "codex-factory": "./dist/src/index.js"
   },
   "main": "dist/src/index.js",
   "files": [
@@ -39,7 +38,7 @@
     "depcheck": "depcheck ."
   },
   "dependencies": {
-    "@ethersphere/bee-js": "^5.0.0",
+    "@codex-storage/sdk-js": "^0.1.2",
     "chalk": "^4.1.2",
     "dockerode": "^3.3.4",
     "furious-commander": "^1.7.1",
@@ -73,9 +72,9 @@
     "typescript": "^4.8.4"
   },
   "engines": {
-    "node": ">=12.0.0",
+    "node": ">=18.0.0",
     "npm": ">=6.0.0",
-    "bee": "1.9.0",
-    "supportedBee": ">=1.9.0"
+    "codex": "4ace774",
+    "supportedCodex": ">=0.2.0"
   }
 }

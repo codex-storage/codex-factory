@@ -1,5 +1,5 @@
 /**
- * Thrown when the error is not related to Bee/network
+ * Thrown when the error is not related to Codex/network
  */
 export class TimeoutError extends Error {}
 

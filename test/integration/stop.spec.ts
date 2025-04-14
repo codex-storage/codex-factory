@@ -8,12 +8,12 @@ import { findContainer } from '../utils/docker'
 
 describe('stop command', () => {
   let docker: Dockerode
-  const envPrefix = `bee-factory-test-${crypto.randomBytes(4).toString('hex')}`
+  const envPrefix = `codex-factory-test-${crypto.randomBytes(4).toString('hex')}`
 
   beforeAll(() => {
     docker = new Dockerode()
 
-    // This will force Bee Factory to create
+    // This will force Codex Factory to create
     process.env[ENV_ENV_PREFIX_KEY] = envPrefix
   })
 
@@ -28,21 +28,21 @@ describe('stop command', () => {
     })
 
     it('', async () => {
-      await expect(findContainer(docker, 'queen')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'client')).resolves.toHaveProperty('State.Status', 'running')
       await expect(findContainer(docker, 'blockchain')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-1')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-2')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-3')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-4')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-1')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-2')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-3')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-4')).resolves.toHaveProperty('State.Status', 'running')
 
       await run(['stop'])
 
-      await expect(findContainer(docker, 'queen')).resolves.toHaveProperty('State.Status', 'exited')
+      await expect(findContainer(docker, 'client')).resolves.toHaveProperty('State.Status', 'exited')
       await expect(findContainer(docker, 'blockchain')).resolves.toHaveProperty('State.Status', 'exited')
-      await expect(findContainer(docker, 'worker-1')).resolves.toHaveProperty('State.Status', 'exited')
-      await expect(findContainer(docker, 'worker-2')).resolves.toHaveProperty('State.Status', 'exited')
-      await expect(findContainer(docker, 'worker-3')).resolves.toHaveProperty('State.Status', 'exited')
-      await expect(findContainer(docker, 'worker-4')).resolves.toHaveProperty('State.Status', 'exited')
+      await expect(findContainer(docker, 'host-1')).resolves.toHaveProperty('State.Status', 'exited')
+      await expect(findContainer(docker, 'host-2')).resolves.toHaveProperty('State.Status', 'exited')
+      await expect(findContainer(docker, 'host-3')).resolves.toHaveProperty('State.Status', 'exited')
+      await expect(findContainer(docker, 'host-4')).resolves.toHaveProperty('State.Status', 'exited')
     })
   })
 
@@ -53,21 +53,21 @@ describe('stop command', () => {
     })
 
     it('', async () => {
-      await expect(findContainer(docker, 'queen')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'client')).resolves.toHaveProperty('State.Status', 'running')
       await expect(findContainer(docker, 'blockchain')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-1')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-2')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-3')).resolves.toHaveProperty('State.Status', 'running')
-      await expect(findContainer(docker, 'worker-4')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-1')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-2')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-3')).resolves.toHaveProperty('State.Status', 'running')
+      await expect(findContainer(docker, 'host-4')).resolves.toHaveProperty('State.Status', 'running')
 
       await run(['stop', '--rm'])
 
-      await expect(findContainer(docker, 'queen')).rejects.toHaveProperty('statusCode', 404)
+      await expect(findContainer(docker, 'client')).rejects.toHaveProperty('statusCode', 404)
       await expect(findContainer(docker, 'blockchain')).rejects.toHaveProperty('statusCode', 404)
-      await expect(findContainer(docker, 'worker-1')).rejects.toHaveProperty('statusCode', 404)
-      await expect(findContainer(docker, 'worker-2')).rejects.toHaveProperty('statusCode', 404)
-      await expect(findContainer(docker, 'worker-3')).rejects.toHaveProperty('statusCode', 404)
-      await expect(findContainer(docker, 'worker-4')).rejects.toHaveProperty('statusCode', 404)
+      await expect(findContainer(docker, 'host-1')).rejects.toHaveProperty('statusCode', 404)
+      await expect(findContainer(docker, 'host-2')).rejects.toHaveProperty('statusCode', 404)
+      await expect(findContainer(docker, 'host-3')).rejects.toHaveProperty('statusCode', 404)
+      await expect(findContainer(docker, 'host-4')).rejects.toHaveProperty('statusCode', 404)
     })
   })
 })

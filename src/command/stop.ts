@@ -7,7 +7,7 @@ import { VerbosityLevel } from './root-command/logging'
 export class Stop extends RootCommand implements LeafCommand {
   public readonly name = 'stop'
 
-  public readonly description = 'Stops the Bee Factory cluster'
+  public readonly description = 'Stops the Codex Factory cluster'
 
   @Option({
     key: 'env-prefix',

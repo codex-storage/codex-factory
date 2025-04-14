@@ -11,7 +11,7 @@ export class RootCommand {
   public verbosity!: VerbosityLevel
 
   public console!: Logging
-  public readonly appName = 'bee-factory'
+  public readonly appName = 'codex-factory'
 
   protected async init(): Promise<void> {
     this.verbosity = VerbosityLevel.Normal

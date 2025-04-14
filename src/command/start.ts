@@ -6,28 +6,26 @@ import {
   DEFAULT_IMAGE_PREFIX,
   Docker,
   RunOptions,
-  WORKER_COUNT,
+  HOST_COUNT,
 } from '../utils/docker'
-import { waitForBlockchain, waitForQueen, waitForWorkers } from '../utils/wait'
+import { waitForBlockchain, waitForClient, waitForHosts } from '../utils/wait'
 import ora from 'ora'
 import { VerbosityLevel } from './root-command/logging'
-import { findBeeVersion, stripCommit } from '../utils/config-sources'
-import PackageJson from '../../package.json'
-import semver from 'semver'
+import { findCodexVersion, validateVersion } from '../utils/config-sources'
 
-const DEFAULT_REPO = 'ethersphere'
+const DEFAULT_REPO = 'codexstorage'
 
 export const ENV_ENV_PREFIX_KEY = 'FACTORY_ENV_PREFIX'
 const ENV_IMAGE_PREFIX_KEY = 'FACTORY_IMAGE_PREFIX'
 const ENV_REPO_KEY = 'FACTORY_DOCKER_REPO'
 const ENV_DETACH_KEY = 'FACTORY_DETACH'
-const ENV_WORKERS_KEY = 'FACTORY_WORKERS'
+const ENV_HOSTS_KEY = 'FACTORY_HOSTS'
 const ENV_FRESH_KEY = 'FACTORY_FRESH'
 
 export class Start extends RootCommand implements LeafCommand {
   public readonly name = 'start'
 
-  public readonly description = 'Spin up the Bee Factory cluster'
+  public readonly description = 'Spin up the Codex Factory cluster'
 
   @Option({
     key: 'fresh',
@@ -50,14 +48,14 @@ export class Start extends RootCommand implements LeafCommand {
   public detach!: boolean
 
   @Option({
-    key: 'workers',
-    alias: 'w',
+    key: 'hosts',
+    alias: 'h',
     type: 'number',
-    description: `Number of workers to spin. Value between 0 and ${WORKER_COUNT} including.`,
-    envKey: ENV_WORKERS_KEY,
-    default: WORKER_COUNT,
+    description: `Number of hosts to spin. Value between 0 and ${HOST_COUNT} including.`,
+    envKey: ENV_HOSTS_KEY,
+    default: HOST_COUNT,
   })
-  public workers!: number
+  public hosts!: number
 
   @Option({
     key: 'repo',
@@ -86,30 +84,23 @@ export class Start extends RootCommand implements LeafCommand {
   })
   public envPrefix!: string
 
-  @Argument({ key: 'bee-version', description: 'Bee image version', required: false })
-  public beeVersion!: string
+  @Argument({ key: 'codex-version', description: 'Codex image version', required: false })
+  public codexVersion!: string
 
   public async run(): Promise<void> {
     await super.init()
 
-    if (this.workers < 0 || this.workers > WORKER_COUNT) {
-      throw new Error(`Worker count has to be between 0 and ${WORKER_COUNT} including.`)
+    if (this.hosts < 0 || this.hosts > HOST_COUNT) {
+      throw new Error(`Worker count has to be between 0 and ${HOST_COUNT} including.`)
     }
 
-    if (!this.beeVersion) {
-      this.beeVersion = await findBeeVersion()
-      this.console.log('Bee version not specified. Found it configured externally.')
-      this.console.log(`Spinning up cluster with Bee version ${this.beeVersion}.`)
+    if (!this.codexVersion) {
+      this.codexVersion = await findCodexVersion()
+      this.console.log('Codex version not specified. Found it configured externally.')
+      this.console.log(`Spinning up cluster with Codex version ${this.codexVersion}.`)
     }
 
-    this.beeVersion = stripCommit(this.beeVersion)
-    const supportedBeeVersion = PackageJson.engines.supportedBee
-
-    if (!semver.satisfies(this.beeVersion, supportedBeeVersion, { includePrerelease: true })) {
-      throw new Error(
-        `Unsupported Bee version!\nThis version of Bee Factory supports versions: ${supportedBeeVersion}, but you have requested start of ${this.beeVersion}`,
-      )
-    }
+    this.codexVersion = validateVersion(this.codexVersion)
 
     const dockerOptions = await this.buildDockerOptions()
     const docker = new Docker(this.console, this.envPrefix, this.imagePrefix, this.repo)
@@ -122,10 +113,10 @@ export class Start extends RootCommand implements LeafCommand {
         return
       }
 
-      await docker.logs(ContainerType.QUEEN, process.stdout)
+      await docker.logs(ContainerType.CLIENT, process.stdout)
     }
 
-    let queenAddress: string
+    let clientDockerIpAddress: string
 
     process.on('SIGINT', async () => {
       try {
@@ -160,10 +151,10 @@ export class Start extends RootCommand implements LeafCommand {
     }).start()
 
     try {
-      const blockchainVersion = await docker.getBlockchainVersionFromQueenMetadata(this.beeVersion)
+      const blockchainImage = await docker.getBlockchainImage(this.codexVersion)
 
       blockchainSpinner.text = 'Starting blockchain node...'
-      await docker.startBlockchainNode(blockchainVersion, dockerOptions)
+      await docker.startBlockchainNode(blockchainImage, dockerOptions)
       blockchainSpinner.text = 'Waiting until blockchain is ready...'
       await waitForBlockchain()
       blockchainSpinner.succeed('Blockchain node is up and listening')
@@ -173,51 +164,53 @@ export class Start extends RootCommand implements LeafCommand {
       throw e
     }
 
-    const queenSpinner = ora({
-      text: 'Starting queen Bee node...',
+    const clientSpinner = ora({
+      text: 'Starting Codex client node...',
       spinner: 'point',
       color: 'yellow',
       isSilent: this.verbosity === VerbosityLevel.Quiet,
     }).start()
 
+    async function clientStatus(): Promise<boolean> {
+      return (await docker.getStatusForContainer(ContainerType.CLIENT)) === 'running'
+    }
+
     try {
-      await docker.startQueenNode(this.beeVersion, dockerOptions)
-      queenSpinner.text = 'Waiting until queen node is ready...'
-      queenAddress = await waitForQueen(
-        async () => (await docker.getStatusForContainer(ContainerType.QUEEN)) === 'running',
-      )
-      queenSpinner.succeed('Queen node is up and listening')
+      await docker.startClientNode(this.codexVersion, dockerOptions)
+      clientSpinner.text = 'Waiting until client node is ready...'
+      clientDockerIpAddress = await waitForClient(clientStatus)
+      clientSpinner.succeed('Client boot node is up and listening')
     } catch (e) {
-      queenSpinner.fail(`It was not possible to start queen node!`)
+      clientSpinner.fail(`It was not possible to start client node!`)
       await this.stopDocker(docker)
       throw e
     }
 
-    if (this.workers > 0) {
-      const workerSpinner = ora({
-        text: 'Starting worker Bee nodes...',
+    if (this.hosts > 0) {
+      const hostSpinner = ora({
+        text: 'Starting Codex host nodes...',
         spinner: 'point',
         color: 'yellow',
         isSilent: this.verbosity === VerbosityLevel.Quiet,
       }).start()
 
       try {
-        for (let i = 1; i <= this.workers; i++) {
-          await docker.startWorkerNode(this.beeVersion, i, queenAddress, dockerOptions)
+        for (let i = 1; i <= this.hosts; i++) {
+          await docker.startHostNode(this.codexVersion, i, clientDockerIpAddress, dockerOptions)
         }
 
-        workerSpinner.text = 'Waiting until all workers connect to queen...'
-        await waitForWorkers(this.workers, docker.getAllStatus.bind(docker))
-        workerSpinner.succeed('Worker nodes are up and listening')
+        hostSpinner.text = 'Waiting until all host nodes connect to client...'
+        await waitForHosts(this.hosts, docker.getAllStatus.bind(docker))
+        hostSpinner.succeed('Host nodes are up and listening')
       } catch (e) {
-        workerSpinner.fail(`It was not possible to start worker nodes!`)
+        hostSpinner.fail(`It was not possible to start host nodes!`)
         await this.stopDocker(docker)
         throw e
       }
     }
 
     if (!this.detach) {
-      await docker.logs(ContainerType.QUEEN, process.stdout, true)
+      await docker.logs(ContainerType.CLIENT, process.stdout, true)
     }
   }
 

@@ -1,7 +1,6 @@
 # Codex Factory
 
 [![Tests](https://github.com/codex-storage/codex-factory/actions/workflows/test.yaml/badge.svg)](https://github.com/codex-storage/codex-factory/actions/workflows/test.yaml)
-[![](https://img.shields.io/badge/made%20by-Swarm-blue.svg?style=flat-square)](https://swarm.ethereum.org/)
 [![standard-readme compliant](https://img.shields.io/badge/standard--readme-OK-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/feross/standard)
 ![](https://img.shields.io/badge/npm-%3E%3D10.0.0-orange.svg?style=flat-square)
@@ -59,6 +58,7 @@ For more details see the `--help` page of the CLI and its commands.
 
 You can omit the Codex version argument when running `codex-factory start` command if you specify it in one of the expected places:
 
+ - `CODEX_FACTORY_VERSION` env. variable
  - `package.json` placed in current working directory (cwd) under the `engines.codex` property.
  - `.codexfactory.json` placed in current working directory (cwd) with property `version`.
 

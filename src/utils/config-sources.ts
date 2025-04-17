@@ -55,6 +55,10 @@ async function searchCodexFactory(): Promise<string | undefined> {
 }
 
 export async function findCodexVersion(): Promise<string> {
+  if (process.env.CODEX_FACTORY_VERSION) {
+    return process.env.CODEX_FACTORY_VERSION
+  }
+
   const packageJson = await searchPackageJson()
 
   if (packageJson) {

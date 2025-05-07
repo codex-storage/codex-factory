@@ -1,20 +1,15 @@
 {
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
-    "alwaysStrict": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
+    "declaration": true,
+    "module": "Node16",
+    "outDir": "./dist",
+    "rootDir": "src",
     "strict": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "typeRoots": ["./src/types", "node_modules/@types"],
-    "target": "es2015",
-    "rootDirs": ["src"],
-    "module": "commonjs",
-    "outDir": "dist",
-    "resolveJsonModule": true,
-    "useDefineForClassFields": true
+    "target": "es2022",
+    "moduleResolution": "node16"
   },
+  "include": ["./src/**/*"],
+  "ts-node": {
+    "esm": true
+  }
 }

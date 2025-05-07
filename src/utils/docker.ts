@@ -1,6 +1,8 @@
+/* eslint-disable camelcase */
 import Dockerode, { Container, ContainerCreateOptions } from 'dockerode'
-import { Logging } from '../command/root-command/logging'
-import { ContainerImageConflictError } from './error'
+
+import { ContainerImageConflictError } from './error.js'
+import { Logging } from './logging.js'
 
 export const DEFAULT_ENV_PREFIX = 'codex-factory'
 export const DEFAULT_IMAGE_PREFIX = 'nim-codex'
@@ -40,15 +42,15 @@ export interface RunOptions {
 }
 
 export enum ContainerType {
-  CLIENT = 'client',
   BLOCKCHAIN = 'blockchain',
+  CLIENT = 'client',
   HOST = 'host',
   HOST_2 = 'host2',
   HOST_3 = 'host3',
   HOST_4 = 'host4',
 }
 
-export type Status = 'running' | 'exists' | 'not-found'
+export type Status = 'exists' | 'not-found' | 'running'
 type FindResult = { container?: Container; image?: string }
 
 export interface AllStatus {
@@ -66,34 +68,12 @@ export interface DockerError extends Error {
 }
 
 export class Docker {
-  private docker: Dockerode
   private console: Logging
-  private runningContainers: Container[]
+  private docker: Dockerode
   private envPrefix: string
   private imagePrefix: string
   private repo?: string
-
-  private get networkName() {
-    return `${this.envPrefix}${NETWORK_NAME_SUFFIX}`
-  }
-
-  private get blockchainName() {
-    return `${this.envPrefix}${BLOCKCHAIN_IMAGE_NAME_SUFFIX}`
-  }
-
-  private hostName(index: number) {
-    return `${this.envPrefix}${HOST_IMAGE_NAME_SUFFIX}-${index}`
-  }
-
-  private get clientName() {
-    return `${this.envPrefix}${CLIENT_IMAGE_NAME_SUFFIX}`
-  }
-
-  private codexImage(codexVersion: string) {
-    if (!this.repo) throw new TypeError('Repo has to be defined!')
-
-    return `${this.repo}/${this.imagePrefix}:${codexVersion}`
-  }
+  private runningContainers: Container[]
 
   constructor(console: Logging, envPrefix: string, imagePrefix: string, repo?: string) {
     this.docker = new Dockerode()
@@ -104,6 +84,18 @@ export class Docker {
     this.repo = repo
   }
 
+  private get blockchainName() {
+    return `${this.envPrefix}${BLOCKCHAIN_IMAGE_NAME_SUFFIX}`
+  }
+
+  private get clientName() {
+    return `${this.envPrefix}${CLIENT_IMAGE_NAME_SUFFIX}`
+  }
+
+  private get networkName() {
+    return `${this.envPrefix}${NETWORK_NAME_SUFFIX}`
+  }
+
   public async createNetwork(): Promise<void> {
     const networks = await this.docker.listNetworks({ filters: { name: [this.networkName] } })
 
@@ -112,164 +104,14 @@ export class Docker {
     }
   }
 
-  public async startBlockchainNode(blockchainImage: string, options: RunOptions): Promise<void> {
-    if (options.fresh) await this.removeContainer(this.blockchainName)
-    await this.pullImageIfNotFound(blockchainImage)
-
-    const container = await this.findOrCreateContainer(this.blockchainName, {
-      Image: blockchainImage,
-      name: this.blockchainName,
-      ExposedPorts: {
-        '8545/tcp': {},
-      },
-      AttachStderr: false,
-      AttachStdout: false,
-      HostConfig: {
-        PortBindings: { '8545/tcp': [{ HostPort: '8545' }] },
-        NetworkMode: this.networkName,
-      },
-    })
-
-    this.runningContainers.push(container)
-    const state = await container.inspect()
-
-    // If it is already running (because of whatever reason) we are not spawning new node
-    if (!state.State.Running) {
-      await container.start()
-    } else {
-      this.console.info('The blockchain container was already running, so not starting it again.')
-    }
-  }
-
-  public async startClientNode(codexVersion: string, options: RunOptions): Promise<void> {
-    if (options.fresh) await this.removeContainer(this.clientName)
-    await this.pullImageIfNotFound(this.codexImage(codexVersion))
-
-    const container = await this.findOrCreateContainer(this.clientName, {
-      Image: this.codexImage(codexVersion),
-      name: this.clientName,
-      ExposedPorts: {
-        '8070/tcp': {},
-        '8080/tcp': {},
-        '8090/udp': {},
-      },
-      Tty: true,
-      Cmd: ['codex', 'persistence'],
-      Env: this.createCodexEnvParameters(HARDHAT_ACCOUNTS[1], 0),
-      AttachStderr: false,
-      AttachStdout: false,
-      HostConfig: {
-        NetworkMode: this.networkName,
-        PortBindings: {
-          '8070/tcp': [{ HostPort: '8070' }],
-          '8080/tcp': [{ HostPort: '8080' }],
-          '8090/udp': [{ HostPort: '8090' }],
-        },
-      },
-    })
-
-    this.runningContainers.push(container)
-    const state = await container.inspect()
-
-    // If it is already running (because of whatever reason) we are not spawning new node.
-    // Already in `findOrCreateContainer` the container is verified that it was spawned with expected version.
-    if (!state.State.Running) {
-      await container.start()
-    } else {
-      this.console.info('The Client node container was already running, so not starting it again.')
-    }
-  }
-
-  public async startHostNode(
-    codexVersion: string,
-    hostNumber: number,
-    bootstrapAddress: string,
-    options: RunOptions,
-  ): Promise<void> {
-    if (options.fresh) await this.removeContainer(this.hostName(hostNumber))
-    await this.pullImageIfNotFound(this.codexImage(codexVersion))
-
-    const container = await this.findOrCreateContainer(this.hostName(hostNumber), {
-      Image: this.codexImage(codexVersion),
-      name: this.hostName(hostNumber),
-      ExposedPorts: {
-        [`${8070 + hostNumber}/tcp`]: {},
-        [`${8080 + hostNumber}/tcp`]: {},
-        [`${8090 + hostNumber}/udp`]: {},
-      },
-      Env: this.createCodexEnvParameters(HARDHAT_ACCOUNTS[hostNumber + 1], hostNumber, bootstrapAddress),
-      Cmd: ['codex', 'persistence', 'prover'],
-      AttachStderr: false,
-      AttachStdout: false,
-      HostConfig: {
-        NetworkMode: this.networkName,
-        PortBindings: {
-          [`${8070 + hostNumber}/tcp`]: [{ HostPort: (8070 + hostNumber).toString() }],
-          [`${8080 + hostNumber}/tcp`]: [{ HostPort: (8080 + hostNumber).toString() }],
-          [`${8090 + hostNumber}/udp`]: [{ HostPort: (8090 + hostNumber).toString() }],
-        },
-      },
-    })
-
-    this.runningContainers.push(container)
-    const state = await container.inspect()
-
-    // If it is already running (because of whatever reason) we are not spawning new node
-    if (!state.State.Running) {
-      await container.start()
-    } else {
-      this.console.info('The client node container was already running, so not starting it again.')
-    }
-  }
-
-  public async logs(
-    target: ContainerType,
-    outputStream: NodeJS.WriteStream,
-    follow = false,
-    tail?: number,
-  ): Promise<void> {
-    const { container } = await this.findContainer(this.getContainerName(target))
-
-    if (!container) {
-      throw new Error('Client container does not exists, even though it should have had!')
-    }
-
-    const logs = await container.logs({ stdout: true, stderr: true, follow, tail })
-
-    if (!follow) {
-      outputStream.write(logs as unknown as Buffer)
-    } else {
-      logs.pipe(outputStream)
-    }
-  }
-
-  public async stopAll(allWithPrefix = false, deleteContainers = false): Promise<void> {
-    const containerProcessor = async (container: Container) => {
-      try {
-        await container.stop()
-      } catch (e) {
-        // We ignore 304 that represents that the container is already stopped
-        if ((e as DockerError).statusCode !== 304) {
-          throw e
-        }
-      }
-
-      if (deleteContainers) {
-        await container.remove()
-      }
-    }
-
-    this.console.info('Stopping all containers')
-    await Promise.all(this.runningContainers.map(containerProcessor))
-
-    if (allWithPrefix) {
-      const containers = await this.docker.listContainers({ all: true })
-      await Promise.all(
-        containers
-          .filter(container => container.Names.filter(n => n.startsWith('/' + this.envPrefix)).length >= 1)
-          .map(container => this.docker.getContainer(container.Id))
-          .map(containerProcessor),
-      )
+  public async getAllStatus(): Promise<AllStatus> {
+    return {
+      blockchain: await this.getStatusForContainer(ContainerType.BLOCKCHAIN),
+      client: await this.getStatusForContainer(ContainerType.CLIENT),
+      host: await this.getStatusForContainer(ContainerType.HOST),
+      host_2: await this.getStatusForContainer(ContainerType.HOST_2),
+      host_3: await this.getStatusForContainer(ContainerType.HOST_3),
+      host_4: await this.getStatusForContainer(ContainerType.HOST_4),
     }
   }
 
@@ -287,27 +129,236 @@ export class Docker {
     return blockchainImage
   }
 
-  public async getAllStatus(): Promise<AllStatus> {
-    return {
-      client: await this.getStatusForContainer(ContainerType.CLIENT),
-      blockchain: await this.getStatusForContainer(ContainerType.BLOCKCHAIN),
-      host: await this.getStatusForContainer(ContainerType.HOST),
-      host_2: await this.getStatusForContainer(ContainerType.HOST_2),
-      host_3: await this.getStatusForContainer(ContainerType.HOST_3),
-      host_4: await this.getStatusForContainer(ContainerType.HOST_4),
+  public async getStatusForContainer(name: ContainerType): Promise<Status> {
+    const foundContainer = await this.findContainer(this.getContainerName(name))
+
+    if (!foundContainer.container) {
+      return 'not-found'
+    }
+
+    const inspectStatus = await foundContainer.container.inspect()
+
+    if (inspectStatus.State.Running) {
+      return 'running'
+    }
+
+    return 'exists'
+  }
+
+  public async logs(
+    target: ContainerType,
+    outputStream: NodeJS.WriteStream,
+    follow = false,
+    tail?: number,
+  ): Promise<void> {
+    const { container } = await this.findContainer(this.getContainerName(target))
+
+    if (!container) {
+      throw new Error('Client container does not exists, even though it should have had!')
+    }
+
+    // @ts-expect-error: Follow is not in typings
+    const logs = await container.logs({ follow, stderr: true, stdout: true, tail })
+
+    if (follow) {
+      // @ts-expect-error: Pipe not defined
+      logs.pipe(outputStream)
+    } else {
+      outputStream.write(logs as unknown as Buffer)
     }
   }
 
-  private async removeContainer(name: string): Promise<void> {
-    this.console.info(`Removing container with name "${name}"`)
-    const { container } = await this.findContainer(name)
+  public async startBlockchainNode(blockchainImage: string, options: RunOptions): Promise<void> {
+    if (options.fresh) await this.removeContainer(this.blockchainName)
+    await this.pullImageIfNotFound(blockchainImage)
 
-    // Container does not exist so nothing to delete
-    if (!container) {
-      return
+    const container = await this.findOrCreateContainer(this.blockchainName, {
+      AttachStderr: false,
+      AttachStdout: false,
+      ExposedPorts: {
+        '8545/tcp': {},
+      },
+      HostConfig: {
+        NetworkMode: this.networkName,
+        PortBindings: { '8545/tcp': [{ HostPort: '8545' }] },
+      },
+      Image: blockchainImage,
+      name: this.blockchainName,
+    })
+
+    this.runningContainers.push(container)
+    const state = await container.inspect()
+
+    // If it is already running (because of whatever reason) we are not spawning new node
+    if (state.State.Running) {
+      this.console.info('The blockchain container was already running, so not starting it again.')
+    } else {
+      await container.start()
+    }
+  }
+
+  public async startClientNode(codexVersion: string, options: RunOptions): Promise<void> {
+    if (options.fresh) await this.removeContainer(this.clientName)
+    await this.pullImageIfNotFound(this.codexImage(codexVersion))
+
+    const container = await this.findOrCreateContainer(this.clientName, {
+      AttachStderr: false,
+      AttachStdout: false,
+      Cmd: ['codex', 'persistence'],
+      Env: this.createCodexEnvParameters(HARDHAT_ACCOUNTS[1], 0),
+      ExposedPorts: {
+        '8070/tcp': {},
+        '8080/tcp': {},
+        '8090/udp': {},
+      },
+      HostConfig: {
+        NetworkMode: this.networkName,
+        PortBindings: {
+          '8070/tcp': [{ HostPort: '8070' }],
+          '8080/tcp': [{ HostPort: '8080' }],
+          '8090/udp': [{ HostPort: '8090' }],
+        },
+      },
+      Image: this.codexImage(codexVersion),
+      name: this.clientName,
+      Tty: true,
+    })
+
+    this.runningContainers.push(container)
+    const state = await container.inspect()
+
+    // If it is already running (because of whatever reason) we are not spawning new node.
+    // Already in `findOrCreateContainer` the container is verified that it was spawned with expected version.
+    if (state.State.Running) {
+      this.console.info('The Client node container was already running, so not starting it again.')
+    } else {
+      await container.start()
+    }
+  }
+
+  public async startHostNode(
+    codexVersion: string,
+    hostNumber: number,
+    bootstrapAddress: string,
+    options: RunOptions,
+  ): Promise<void> {
+    if (options.fresh) await this.removeContainer(this.hostName(hostNumber))
+    await this.pullImageIfNotFound(this.codexImage(codexVersion))
+
+    const container = await this.findOrCreateContainer(this.hostName(hostNumber), {
+      AttachStderr: false,
+      AttachStdout: false,
+      Cmd: ['codex', 'persistence', 'prover'],
+      Env: this.createCodexEnvParameters(HARDHAT_ACCOUNTS[hostNumber + 1], hostNumber, bootstrapAddress),
+      ExposedPorts: {
+        [`${8070 + hostNumber}/tcp`]: {},
+        [`${8080 + hostNumber}/tcp`]: {},
+        [`${8090 + hostNumber}/udp`]: {},
+      },
+      HostConfig: {
+        NetworkMode: this.networkName,
+        PortBindings: {
+          [`${8070 + hostNumber}/tcp`]: [{ HostPort: (8070 + hostNumber).toString() }],
+          [`${8080 + hostNumber}/tcp`]: [{ HostPort: (8080 + hostNumber).toString() }],
+          [`${8090 + hostNumber}/udp`]: [{ HostPort: (8090 + hostNumber).toString() }],
+        },
+      },
+      Image: this.codexImage(codexVersion),
+      name: this.hostName(hostNumber),
+    })
+
+    this.runningContainers.push(container)
+    const state = await container.inspect()
+
+    // If it is already running (because of whatever reason) we are not spawning new node
+    if (state.State.Running) {
+      this.console.info('The client node container was already running, so not starting it again.')
+    } else {
+      await container.start()
+    }
+  }
+
+  public async stopAll(allWithPrefix = false, deleteContainers = false): Promise<void> {
+    const containerProcessor = async (container: Container) => {
+      try {
+        await container.stop()
+      } catch (error) {
+        // We ignore 304 that represents that the container is already stopped
+        if ((error as DockerError).statusCode !== 304) {
+          throw error
+        }
+      }
+
+      if (deleteContainers) {
+        await container.remove()
+      }
     }
 
-    await container.remove({ v: true, force: true })
+    this.console.info('Stopping all containers')
+    await Promise.all(this.runningContainers.map((element) => containerProcessor(element)))
+
+    if (allWithPrefix) {
+      const containers = await this.docker.listContainers({ all: true })
+      await Promise.all(
+        containers
+          .filter(container => container.Names.some(n => n.startsWith('/' + this.envPrefix)))
+          .map(container => this.docker.getContainer(container.Id))
+          .map((element) => containerProcessor(element)),
+      )
+    }
+  }
+
+  private codexImage(codexVersion: string) {
+    if (!this.repo) throw new TypeError('Repo has to be defined!')
+
+    return `${this.repo}/${this.imagePrefix}:${codexVersion}`
+  }
+
+  private createCodexEnvParameters(ethAccount: string, portIndex: number, bootnode?: string): string[] {
+    const options: Record<string, string> = {
+      'api-bindaddr': '0.0.0.0',
+      'api-cors-origin': '*',
+      'api-port': `${8080 + portIndex}`,
+      'disc-port': `${8090 + portIndex}`,
+      'eth-account': ethAccount,
+      'eth-provider': `http://${this.blockchainName}:8545`,
+      'listen-addrs': `/ip4/0.0.0.0/tcp/${8070 + portIndex}`,
+      'log-level': 'NOTICE; TRACE: marketplace,sales,node,restapi',
+      'marketplace-address': '0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44',
+      validator: 'true',
+      'validator-max-slots': '1000',
+    }
+
+    // Env variables for Codex has form of `CODEX_LOG_LEVEL`, so we need to transform it.
+    // eslint-disable-next-line unicorn/no-array-reduce
+    const envVariables = Object.entries(options).reduce<string[]>((previous, current) => {
+      const keyName = `CODEX_${current[0].toUpperCase().replaceAll('-', '_')}`
+      previous.push(`${keyName}=${current[1]}`)
+
+      return previous
+    }, [])
+
+    if (bootnode) {
+      envVariables.push(`BOOTSTRAP_NODE_URL=${bootnode}:8080`)
+    }
+
+    envVariables.push('NAT_IP_AUTO=true')
+
+    return envVariables
+  }
+
+  private async findContainer(name: string): Promise<FindResult> {
+    const containers = await this.docker.listContainers({ all: true, filters: { name: [name] } })
+
+    if (containers.length === 0) {
+      return {}
+    }
+
+    if (containers.length > 1) {
+      throw new Error(`Found ${containers.length} containers for name "${name}". Expected only one.`)
+    }
+
+    return { container: this.docker.getContainer(containers[0].Id), image: containers[0].Image }
   }
 
   private async findOrCreateContainer(name: string, createOptions: ContainerCreateOptions): Promise<Container> {
@@ -331,108 +382,75 @@ export class Docker {
 
     try {
       return await this.docker.createContainer(createOptions)
-    } catch (e) {
+    } catch (error) {
       // 404 is Image Not Found ==> pull the image
-      if ((e as DockerError).statusCode !== 404) {
-        throw e
+      if ((error as DockerError).statusCode !== 404) {
+        throw error
       }
 
       this.console.info(`Image ${createOptions.Image} not found. Pulling it.`)
       await this.pullImageIfNotFound(createOptions.Image!)
 
-      return await this.docker.createContainer(createOptions)
+      return this.docker.createContainer(createOptions)
     }
-  }
-
-  private async findContainer(name: string): Promise<FindResult> {
-    const containers = await this.docker.listContainers({ all: true, filters: { name: [name] } })
-
-    if (containers.length === 0) {
-      return {}
-    }
-
-    if (containers.length > 1) {
-      throw new Error(`Found ${containers.length} containers for name "${name}". Expected only one.`)
-    }
-
-    return { container: this.docker.getContainer(containers[0].Id), image: containers[0].Image }
-  }
-
-  public async getStatusForContainer(name: ContainerType): Promise<Status> {
-    const foundContainer = await this.findContainer(this.getContainerName(name))
-
-    if (!foundContainer.container) {
-      return 'not-found'
-    }
-
-    const inspectStatus = await foundContainer.container.inspect()
-
-    if (inspectStatus.State.Running) {
-      return 'running'
-    }
-
-    return 'exists'
   }
 
   private getContainerName(name: ContainerType) {
     switch (name) {
-      case ContainerType.BLOCKCHAIN:
+      case ContainerType.BLOCKCHAIN: {
         return this.blockchainName
-      case ContainerType.CLIENT:
+      }
+
+      case ContainerType.CLIENT: {
         return this.clientName
-      case ContainerType.HOST:
+      }
+
+      case ContainerType.HOST: {
         return this.hostName(1)
-      case ContainerType.HOST_2:
+      }
+
+      case ContainerType.HOST_2: {
         return this.hostName(2)
-      case ContainerType.HOST_3:
+      }
+
+      case ContainerType.HOST_3: {
         return this.hostName(3)
-      case ContainerType.HOST_4:
+      }
+
+      case ContainerType.HOST_4: {
         return this.hostName(4)
-      default:
+      }
+
+      default: {
         throw new Error('Unknown container!')
+      }
     }
   }
 
-  private createCodexEnvParameters(ethAccount: string, portIndex: number, bootnode?: string): string[] {
-    const options: Record<string, string> = {
-      'eth-provider': `http://${this.blockchainName}:8545`,
-      'eth-account': ethAccount,
-      'disc-port': `${8090 + portIndex}`,
-      'listen-addrs': `/ip4/0.0.0.0/tcp/${8070 + portIndex}`,
-      'api-port': `${8080 + portIndex}`,
-      'api-bindaddr': '0.0.0.0',
-      'api-cors-origin': '*',
-      validator: 'true',
-      'validator-max-slots': '1000',
-      'marketplace-address': '0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44',
-      'log-level': 'NOTICE; TRACE: marketplace,sales,node,restapi',
-    }
-
-    // Env variables for Codex has form of `CODEX_LOG_LEVEL`, so we need to transform it.
-    const envVariables = Object.entries(options).reduce<string[]>((previous, current) => {
-      const keyName = `CODEX_${current[0].toUpperCase().replace(/-/g, '_')}`
-      previous.push(`${keyName}=${current[1]}`)
-
-      return previous
-    }, [])
-
-    if (bootnode) {
-      envVariables.push(`BOOTSTRAP_NODE_URL=${bootnode}:8080`)
-    }
-
-    envVariables.push('NAT_IP_AUTO=true')
-
-    return envVariables
+  private hostName(index: number) {
+    return `${this.envPrefix}${HOST_IMAGE_NAME_SUFFIX}-${index}`
   }
 
   private async pullImageIfNotFound(name: string): Promise<void> {
     try {
       await this.docker.getImage(name).inspect()
-    } catch (e) {
+    } catch {
       this.console.info(`Image ${name} not found locally, pulling it.`)
       const pullStream = await this.docker.pull(name)
 
-      await new Promise(res => this.docker.modem.followProgress(pullStream, res))
+      await new Promise(res => {this.docker.modem.followProgress(pullStream, res)})
     }
+  }
+
+  private async removeContainer(name: string): Promise<void> {
+    this.console.info(`Removing container with name "${name}"`)
+    const { container } = await this.findContainer(name)
+
+    // Container does not exist so nothing to delete
+    if (!container) {
+      return
+    }
+
+    await container.remove({ force: true, v: true })
   }
 }

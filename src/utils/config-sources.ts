@@ -1,60 +1,65 @@
-import { readFile as readFileCb } from 'fs'
-import * as path from 'path'
-import { promisify } from 'util'
-import PackageJson from '../../package.json'
+import type { PJSON } from '@oclif/core/interfaces'
+
+import { readFile as readFileCb } from 'node:fs'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
 import semver from 'semver'
+
 
 const readFile = promisify(readFileCb)
 const VERSION_REGEX = /^\d+\.\d+\.\d+$/
 const COMMIT_HASH_REGEX = /^([a-f0-9]{7,10})$/i
 
-export function validateVersion(version: string): string {
+export function validateVersion (version: string, pkgJson: PJSON): string {
   if (version === 'latest') {
     return version
   }
 
   if (VERSION_REGEX.test(version)) {
-    const supportedCodexVersion = PackageJson.engines.supportedCodex
+    const supportedCodexVersion = pkgJson.engines.supportedCodex
 
     if (!semver.satisfies(version, supportedCodexVersion, { includePrerelease: true })) {
       throw new Error(
-        `Unsupported Codex version!\nThis version of Codex Factory supports versions: ${supportedCodexVersion}, but you have requested start of ${version}`,
+        `Unsupported Codex version!\nThis version of Codex Factory supports versions: ${supportedCodexVersion}, but you have requested start of ${version}`
       )
     }
 
     return version
-  } else if (COMMIT_HASH_REGEX.test(version)) {
-    return `sha-${version}`
-  } else {
-    throw new Error('The version does not have expected format!')
   }
+
+  if (COMMIT_HASH_REGEX.test(version)) {
+    return `sha-${version}`
+  }
+
+  throw new Error('The version does not have expected format!')
+
 }
 
-async function searchPackageJson(): Promise<string | undefined> {
-  const expectedPath = path.join(process.cwd(), 'package.json')
+async function searchPackageJson (): Promise<string | undefined> {
+  const expectedPath = join(process.cwd(), 'package.json')
 
   try {
     const pkgJson = JSON.parse(await readFile(expectedPath, { encoding: 'utf8' }))
 
     return pkgJson?.engines?.codex
-  } catch (e) {
+  } catch {
     return undefined
   }
 }
 
-async function searchCodexFactory(): Promise<string | undefined> {
-  const expectedPath = path.join(process.cwd(), '.codexfactory.json')
+async function searchCodexFactory (): Promise<string | undefined> {
+  const expectedPath = join(process.cwd(), '.codexfactory.json')
 
   try {
     const pkgJson = JSON.parse(await readFile(expectedPath, { encoding: 'utf8' }))
 
     return pkgJson?.version
-  } catch (e) {
+  } catch {
     return undefined
   }
 }
 
-export async function findCodexVersion(): Promise<string> {
+export async function findCodexVersion (): Promise<string> {
   if (process.env.CODEX_FACTORY_VERSION) {
     return process.env.CODEX_FACTORY_VERSION
   }

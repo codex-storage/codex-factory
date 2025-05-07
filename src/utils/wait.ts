@@ -1,19 +1,20 @@
-import fetch, { FetchError } from 'node-fetch'
-import { sleep } from './index'
-import { TimeoutError } from './error'
-import { AllStatus } from './docker'
+/* eslint-disable no-await-in-loop */
 import { Codex } from '@codex-storage/sdk-js'
+import fetch, { FetchError } from 'node-fetch'
 
-const AWAIT_SLEEP = 3_000
+import { AllStatus } from './docker.js'
+import { TimeoutError } from './error.js'
+import { sleep } from './index.js'
 
-const BLOCKCHAIN_BODY_REQUEST = JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', id: 1 })
+const AWAIT_SLEEP = 3000
+
+const BLOCKCHAIN_BODY_REQUEST = JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_chainId' })
 const EXPECTED_CHAIN_ID = '0x7a69'
 const ALLOWED_ERRORS = ['ECONNREFUSED', 'ECONNRESET', 'UND_ERR_SOCKET']
 
 function isAllowedError(e: FetchError): boolean {
-  //@ts-ignore: Node 18 native fetch returns error where the underlying error is wrapped and placed in e.cause
   if (e.cause) {
-    //@ts-ignore: Node 18 native fetch returns error where the underlying error is wrapped and placed in e.cause
+    // @ts-expect-error: Node 18 native fetch returns error where the underlying error is wrapped and placed in e.cause
     e = e.cause
   }
 
@@ -35,27 +36,28 @@ function extractIpFromMultiaddr(multiaddr: string): string {
 
   if (match) {
     return match[1]
-  } else {
-    throw new Error('Unsupported multiaddr')
   }
+
+    throw new Error('Unsupported multiaddr')
+
 }
 
 export async function waitForBlockchain(waitingIterations = 30): Promise<void> {
   for (let i = 0; i < waitingIterations; i++) {
     try {
       const request = await fetch('http://127.0.0.1:8545', {
-        method: 'POST',
         body: BLOCKCHAIN_BODY_REQUEST,
         headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       })
       const response = (await request.json()) as { result: string }
 
       if (response.result === EXPECTED_CHAIN_ID) {
         return
       }
-    } catch (e) {
-      if (!isAllowedError(e as FetchError)) {
-        throw e
+    } catch (error) {
+      if (!isAllowedError(error as FetchError)) {
+        throw error
       }
     }
 
@@ -90,9 +92,9 @@ export async function waitForClient(
           return extractIpFromMultiaddr(addr)
         }
       }
-    } catch (e) {
-      if (!isAllowedError(e as FetchError)) {
-        throw e
+    } catch (error) {
+      if (!isAllowedError(error as FetchError)) {
+        throw error
       }
     }
 
@@ -114,6 +116,7 @@ export async function waitForHosts(
   if (status[`host` as keyof AllStatus] !== 'running') {
     throw new Error('Some of the hosts node is not running!')
   }
+
   for (let i = 2; i <= hostCount; i++) {
     if (status[`host_${i}` as keyof AllStatus] !== 'running') {
       throw new Error('Some of the hosts node is not running!')
@@ -131,9 +134,9 @@ export async function waitForHosts(
       if (info.data.table.nodes.length >= hostCount) {
         return
       }
-    } catch (e) {
-      if (!isAllowedError(e as FetchError)) {
-        throw e
+    } catch (error) {
+      if (!isAllowedError(error as FetchError)) {
+        throw error
       }
     }
 

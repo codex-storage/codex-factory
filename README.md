@@ -1,14 +1,13 @@
 # Codex Factory
 
+[![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
+[![Version](https://img.shields.io/npm/v/@codex-storage/codex-factory.svg)](https://npmjs.org/package/@codex-storage/codex-factory)
+[![Downloads/week](https://img.shields.io/npm/dw/@codex-storage/codex-factory.svg)](https://npmjs.org/package/@codex-storage/codex-factory)
 [![Tests](https://github.com/codex-storage/codex-factory/actions/workflows/test.yaml/badge.svg)](https://github.com/codex-storage/codex-factory/actions/workflows/test.yaml)
-[![standard-readme compliant](https://img.shields.io/badge/standard--readme-OK-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
-[![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/feross/standard)
 ![](https://img.shields.io/badge/npm-%3E%3D10.0.0-orange.svg?style=flat-square)
-![](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-orange.svg?style=flat-square)
+![](https://img.shields.io/badge/Node.js-%3E%3D20.0.0-orange.svg?style=flat-square)
 
 > CLI tool to spin up Docker cluster of Codex nodes for advanced testing and/or development
-
-**Warning: This project is in beta state. There might (and most probably will) be changes in the future to its API and working. Also, no guarantees can be made about its stability, efficiency, and security at this stage.**
 
 ## Table of Contents
 
@@ -58,9 +57,9 @@ For more details see the `--help` page of the CLI and its commands.
 
 You can omit the Codex version argument when running `codex-factory start` command if you specify it in one of the expected places:
 
- - `CODEX_FACTORY_VERSION` env. variable
- - `package.json` placed in current working directory (cwd) under the `engines.codex` property.
- - `.codexfactory.json` placed in current working directory (cwd) with property `version`.
+- `CODEX_FACTORY_VERSION` env. variable
+- `package.json` placed in current working directory (cwd) under the `engines.codex` property.
+- `.codexfactory.json` placed in current working directory (cwd) with property `version`.
 
 #### Build versions
 
@@ -94,6 +93,6 @@ You can run the CLI while developing using `npm start -- <command> ...`.
 
 ## License
 
-[BSD-3-Clause](./LICENSE)
+[BSD-3-Clause](LICENSE)
 
 Originally written for Swarm's Bee client: https://github.com/ethersphere/bee-factory

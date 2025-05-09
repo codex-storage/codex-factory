@@ -1,4 +1,4 @@
-import { runCommand } from '@oclif/test'
+import { runCommand as runCommandRaw } from '@oclif/test'
 import { use as chaiUse, expect } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import Dockerode from 'dockerode'
@@ -8,6 +8,17 @@ import { ENV_ENV_PREFIX_KEY } from '../../src/commands/start'
 import { deleteNetwork, findContainer } from '../utils/docker'
 
 chaiUse(chaiAsPromised)
+
+async function runCommand(args: string): Promise<ReturnType<typeof runCommandRaw>> {
+  const result = await runCommandRaw(args)
+
+  if (result.error) {
+    console.log(result.stdout)
+    console.error(result.stderr)
+  }
+
+  return result
+}
 
 describe('stop command', () => {
   let docker: Dockerode

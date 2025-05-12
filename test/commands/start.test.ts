@@ -12,7 +12,7 @@ import { deleteNetwork, findContainer } from '../utils/docker'
 chaiUse(chaiAsPromised)
 let testFailed = false
 
-async function runCommand(args: string): Promise<ReturnType<typeof runCommandRaw>> {
+async function runCommand (args: string): Promise<ReturnType<typeof runCommandRaw>> {
   const result = await runCommandRaw(args)
 
   if (result.error) {
@@ -72,7 +72,9 @@ describe('start command', () => {
       const containers = await docker.listContainers()
       for (const c of containers) console.log(` - ${c.Names.join(', ')}`)
 
-      await runCommand('logs client')
+      const { stdout } = await runCommand('logs client')
+      console.log('Client logs:\n', stdout)
+
     }
 
     await runCommand('stop')

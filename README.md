@@ -1,8 +1,8 @@
 # Codex Factory
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
-[![Version](https://img.shields.io/npm/v/@codex-storage/codex-factory.svg)](https://npmjs.org/package/@codex-storage/codex-factory)
-[![Downloads/week](https://img.shields.io/npm/dw/@codex-storage/codex-factory.svg)](https://npmjs.org/package/@codex-storage/codex-factory)
+[![Version](https://img.shields.io/npm/v/codex-factory.svg)](https://npmjs.org/package/codex-factory)
+[![Downloads/week](https://img.shields.io/npm/dw/codex-factory.svg)](https://npmjs.org/package/codex-factory)
 [![Tests](https://github.com/codex-storage/codex-factory/actions/workflows/test.yaml/badge.svg)](https://github.com/codex-storage/codex-factory/actions/workflows/test.yaml)
 ![](https://img.shields.io/badge/npm-%3E%3D10.0.0-orange.svg?style=flat-square)
 ![](https://img.shields.io/badge/Node.js-%3E%3D20.0.0-orange.svg?style=flat-square)
@@ -21,7 +21,13 @@
 **Requirements:** Docker
 
 ```shell
-$ npm install -g @codex-storage/codex-factory
+$ npm install -g codex-factory
+```
+
+You can also use this CLI directly thanks to `npx` without installing it:
+
+```shell
+$ npx codex-factory start 0.2.0
 ```
 
 ## Usage

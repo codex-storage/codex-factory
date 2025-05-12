@@ -1,5 +1,5 @@
 {
-  "name": "@codex-storage/codex-factory",
+  "name": "codex-factory",
   "description": "Orchestration CLI for spinning up local development Codex cluster with Docker",
   "version": "0.1.0",
   "author": "Codex Authors",
@@ -40,7 +40,7 @@
     "typescript": "^5"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.0.0",
     "npm": ">=6.0.0",
     "codex": "0.2.1",
     "supportedCodex": ">0.2.0"
@@ -80,9 +80,9 @@
     "build": "shx rm -rf dist && tsc -b",
     "lint": "eslint",
     "postpack": "shx rm -f oclif.manifest.json",
+    "prepare": "npm run build",
     "prepack": "oclif manifest && oclif readme",
-    "test": "mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "oclif readme && git add README.md"
+    "test": "mocha --forbid-only \"test/**/*.test.ts\""
   },
   "types": "dist/index.d.ts"
 }

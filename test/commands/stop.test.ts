@@ -13,8 +13,9 @@ async function runCommand(args: string): Promise<ReturnType<typeof runCommandRaw
   const result = await runCommandRaw(args)
 
   if (result.error) {
-    console.log(result.stdout)
-    console.error(result.stderr)
+    console.log('============\n=> ERROR:', result.error)
+    console.log('============\n=> STDOUT:', result.stdout)
+    console.error('============\n=> STDERR:', result.stderr)
   }
 
   return result

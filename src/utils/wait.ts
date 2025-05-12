@@ -6,11 +6,11 @@ import { AllStatus } from './docker.js'
 import { TimeoutError } from './error.js'
 import { sleep } from './index.js'
 
-const AWAIT_SLEEP = 3000
+const AWAIT_SLEEP = 1000
 
 const BLOCKCHAIN_BODY_REQUEST = JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'eth_chainId' })
 const EXPECTED_CHAIN_ID = '0x7a69'
-const ALLOWED_ERRORS = ['ECONNREFUSED', 'ECONNRESET', 'UND_ERR_SOCKET']
+const ALLOWED_ERRORS = ['ECONNREFUSED', 'ECONNRESET', 'UND_ERR_SOCKET', 502] as string[]
 
 function isAllowedError(e: FetchError): boolean {
   if (e.cause) {
@@ -22,8 +22,6 @@ function isAllowedError(e: FetchError): boolean {
     return true
   }
 
-  // Errors from Bee-js does not have the `FetchError` structure (eq. `code` property)
-  // so we assert message itself.
   if (e.message.includes('socket hang up')) {
     return true
   }
@@ -42,7 +40,7 @@ function extractIpFromMultiaddr(multiaddr: string): string {
 
 }
 
-export async function waitForBlockchain(waitingIterations = 30): Promise<void> {
+export async function waitForBlockchain(waitingIterations = 90): Promise<void> {
   for (let i = 0; i < waitingIterations; i++) {
     try {
       const request = await fetch('http://127.0.0.1:8545', {
@@ -69,7 +67,7 @@ export async function waitForBlockchain(waitingIterations = 30): Promise<void> {
 
 export async function waitForClient(
   verifyClientIsUp: () => Promise<boolean>,
-  waitingIterations = 120,
+  waitingIterations = 300,
 ): Promise<string> {
   const codex = new Codex('http://127.0.0.1:8080')
 
@@ -107,7 +105,7 @@ export async function waitForClient(
 export async function waitForHosts(
   hostCount: number,
   getStatus: () => Promise<AllStatus>,
-  waitingIterations = 120,
+  waitingIterations = 300,
 ): Promise<void> {
   const codex = new Codex('http://127.0.0.1:8080')
 

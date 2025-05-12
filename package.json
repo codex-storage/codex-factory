@@ -1,7 +1,7 @@
 {
   "name": "@codex-storage/codex-factory",
   "description": "Orchestration CLI for spinning up local development Codex cluster with Docker",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "author": "Codex Authors",
   "bin": {
     "codex-factory": "bin/run.js"

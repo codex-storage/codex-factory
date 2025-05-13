@@ -1,5 +1,7 @@
 # Codex Factory
 
+![render1747145157758-min](https://github.com/user-attachments/assets/0ebb6b42-88fc-4788-9027-a2ecb12eac1a)
+
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/codex-factory.svg)](https://npmjs.org/package/codex-factory)
 [![Downloads/week](https://img.shields.io/npm/dw/codex-factory.svg)](https://npmjs.org/package/codex-factory)
@@ -27,7 +29,7 @@ $ npm install -g codex-factory
 You can also use this CLI directly thanks to `npx` without installing it:
 
 ```shell
-$ npx codex-factory start 0.2.0
+$ npx codex-factory start 0.2.1
 ```
 
 ## Usage
@@ -79,6 +81,18 @@ parameters in the build you want to use, Codex factory might not yet support it.
 There is special Codex Factory image tag `latest` that has the latest Codex's master build.
 It is not recommended using this tag unless you need to test some upcoming feature and know what are you doing.
 There is high chance that there might be some change in Codex that is not compatible with current Codex Factory and so it might not even work.
+
+## What it does
+
+This tool spawns small cluster of Codex nodes using Docker containers. 
+It spawns by default 5 nodes: 1 client node and 4 storage provider nodes. The cluster also contains local blockchain container that is running Hardhat instance with deployed Marketplace smart contracts and funds for all the nodes. All the nodes also run validator routine. All nodes run `persistence` module, so this is the most feature complete you can get with Codex.
+
+### Exposed API
+
+The API ports of the nodes are following:
+
+ - `8080` for client node
+ - `8081-8084` for the host nodes
 
 ## Contribute
 

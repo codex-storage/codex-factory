@@ -15,7 +15,8 @@
     "dockerode": "^4",
     "node-fetch": "^3",
     "ora": "^8",
-    "semver": "^7"
+    "semver": "^7",
+    "tty-table": "^4.2.3"
   },
   "devDependencies": {
     "@eslint/compat": "^1",
@@ -42,7 +43,7 @@
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=6.0.0",
-    "codex": "0.2.1",
+    "codex": "0.2.3",
     "supportedCodex": ">0.2.0"
   },
   "files": [
